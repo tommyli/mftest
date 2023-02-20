@@ -35,14 +35,24 @@ class MfClient {
     private String authConn(RemoteServer server) {
         MfConnection authConn = (MfConnection) server.open()
         authConn.connect(MF_APP, mfDomain, mfUsername, mfPassword)
+
         Writer writer = new StringWriter()
         MarkupBuilder xml = new MarkupBuilder(writer)
+
+        //<app>archie</app>
+        //<destroy-on-service-call>server.version</destroy-on-service-call>
+        //<perm>
+        //  <access>ACCESS</access>
+        //  <resource type='service'>asset.get</resource>
+        //</perm>
         xml.app(MF_APP)
         xml.'destroy-on-service-call'('server.version')
         xml.perm {
             access('ACCESS')
-            resource(type: 'service', 'server.version')
+            resource(type: 'service', 'asset.get')
         }
+        // HELP: Is there a way to request for multiple resources when creating a token?
+
         def r = authConn.execute("secure.identity.token.create", writer.toString())
         String token = r.value("token")
         return token
@@ -50,16 +60,29 @@ class MfClient {
 
     Collection<String> systemServiceList() {
         def r = conn.execute("system.service.list")
+//        def r = conn.execute("system.service.describe")
         Collection<String> services = r.values("service");
         return services
     }
 
-    void showAsset(Long id) {
+    void actorSelfDescribe() {
+        def r = conn.execute("actor.self.describe")
+        println r
+    }
+
+    void showAsset(Long assetId) {
         Writer writer = new StringWriter()
         MarkupBuilder xml = new MarkupBuilder(writer)
-        xml.app(MF_APP)
-        xml.id(id)
-        def ele = conn.execute('asset.get', writer.toString())
+
+//         <service name='asset.get'>
+//           <id>747719513</id>
+//         </service>
+        xml.service(name: 'asset.get') {
+            id(assetId)
+        }
+
+        // HELP: asset.get: call to service 'asset.get' failed: No permission to access metadata for asset (id) 97485468
+        def ele = conn.execute('service.execute', writer.toString())
         println ele
     }
 }
